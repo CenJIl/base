@@ -78,7 +78,8 @@ func InitLogger() {
 	}
 
 	if isWindowsService() {
-		logDir := "logs"
+		exePath, _ := os.Executable()
+		logDir := filepath.Join(filepath.Dir(exePath), "logs")
 		_ = os.MkdirAll(logDir, 0755)
 		lumberjackLogger := &lumberjack.Logger{
 			Filename:   filepath.Join(logDir, "app.log"),

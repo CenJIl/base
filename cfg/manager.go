@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,18 +33,22 @@ type defaultLog struct{}
 func (l *defaultLog) Info(msg string)  { log.Printf("INFO  %s", msg) }
 func (l *defaultLog) Error(msg string) { log.Printf("ERROR %s", msg) }
 
-// 使用go:embed 标签插入原始数据
-func InitConfig[T any](defaultConfigRaw []byte) error {
+// 使用go:embed 嵌入默认配置文件
+func InitConfigWithLogger[T any](defaultConfigRaw []byte, log CfgLogger) error {
+	cfgLog = log
 	var cfg T
 
-	if _, err := os.Stat(configFileName); os.IsNotExist(err) {
+	exePath, _ := os.Executable()
+	configFilePath := filepath.Join(filepath.Dir(exePath), configFileName)
+
+	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
 		cfgLog.Info("配置文件不存在，写入默认配置")
-		_ = os.WriteFile(configFileName, defaultConfigRaw, 0644)
+		_ = os.WriteFile(configFilePath, defaultConfigRaw, 0644)
 		if err := json.Unmarshal(defaultConfigRaw, &cfg); err != nil {
 			return err
 		}
 	} else {
-		data, err := os.ReadFile(configFileName)
+		data, err := os.ReadFile(configFilePath)
 		if err != nil {
 			cfgLog.Error("读取配置文件失败，使用内存默认值")
 			if err := json.Unmarshal(defaultConfigRaw, &cfg); err != nil {
@@ -55,27 +60,24 @@ func InitConfig[T any](defaultConfigRaw []byte) error {
 		}
 	}
 
-	var anyCfg any = cfg
+	var anyCfg any = &cfg
 	currentConfig.Store(&anyCfg)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
-	go watchConfig[T](watcher)
+	go watchConfig[T](watcher, configFilePath)
 
-	return watcher.Add(configFileName)
+	return watcher.Add(configFilePath)
 }
 
-func InitConfigWithLogger[T any](defaultConfigRaw []byte, log CfgLogger) error {
-	if err := InitConfig[T](defaultConfigRaw); err != nil {
-		return err
-	}
-	cfgLog = log
-	return nil
+// InitConfig 初始化配置，使用默认日志记录器
+func InitConfig[T any](defaultConfigRaw []byte) error {
+	return InitConfigWithLogger[T](defaultConfigRaw, &defaultLog{})
 }
 
-func watchConfig[T any](watcher *fsnotify.Watcher) {
+func watchConfig[T any](watcher *fsnotify.Watcher, configFilePath string) {
 	var (
 		timer    *time.Timer
 		timerMu  sync.Mutex
@@ -97,7 +99,7 @@ func watchConfig[T any](watcher *fsnotify.Watcher) {
 				timer.Stop()
 			}
 			timer = time.AfterFunc(debounce, func() {
-				data, err := os.ReadFile(configFileName)
+				data, err := os.ReadFile(configFilePath)
 				if err != nil {
 					return
 				}
@@ -106,7 +108,7 @@ func watchConfig[T any](watcher *fsnotify.Watcher) {
 					cfgLog.Error("配置热更新解析失败")
 					return
 				}
-				var anyCfg any = cfg
+				var anyCfg any = &cfg
 				currentConfig.Store(&anyCfg)
 
 				handlerMutex.Lock()
