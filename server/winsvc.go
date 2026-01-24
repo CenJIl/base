@@ -13,28 +13,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CenJIl/base/common"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
-type SVCLogger interface {
-	Infof(format string, v ...any)
-	Errorf(format string, v ...any)
-}
-
-type defaultLog struct{}
-
-func (l *defaultLog) Infof(f string, v ...any)  { log.Printf("INFO  "+f, v...) }
-func (l *defaultLog) Errorf(f string, v ...any) { log.Printf("ERROR "+f, v...) }
-
 // WinSVC 核心结构体
 type WinSVC struct {
 	Name         string
 	DisplayName  string
 	Description  string
-	SVCLog       SVCLogger
+	Log          common.Logger
 	ShutdownWait time.Duration
 	Handler      func(ctx context.Context) error
 }
@@ -59,7 +50,7 @@ func DefaultWinSVC(handler func(ctx context.Context) error) *WinSVC {
 		Name:         defaultName,
 		DisplayName:  defaultName,
 		Description:  fmt.Sprintf("%s Create With Default", defaultName),
-		SVCLog:       &defaultLog{},
+		Log:          &common.DefaultLog{},
 		ShutdownWait: 15 * time.Second,
 		Handler:      handler,
 	}
@@ -67,14 +58,14 @@ func DefaultWinSVC(handler func(ctx context.Context) error) *WinSVC {
 
 // Run 启动服务（阻塞运行）
 func (w *WinSVC) Run() {
-	if w.SVCLog == nil {
-		w.SVCLog = &defaultLog{}
+	if w.Log == nil {
+		w.Log = &common.DefaultLog{}
 	}
 
 	ensureWorkingDirectory()
 
 	if err := svc.Run(w.Name, w); err != nil {
-		w.SVCLog.Errorf("服务 [%s] 启动失败: %v", w.Name, err)
+		w.Log.Errorf("服务 [%s] 启动失败: %v", w.Name, err)
 		if el, err := eventlog.Open(w.Name); err == nil {
 			_ = el.Error(1, fmt.Sprintf("Service failed: %v", err))
 			el.Close()
@@ -96,13 +87,13 @@ func (w *WinSVC) Execute(args []string, r <-chan svc.ChangeRequest, changes chan
 	}()
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmds}
-	w.SVCLog.Infof("服务 [%s] 运行中...", w.Name)
+	w.Log.Infof("服务 [%s] 运行中...", w.Name)
 
 	for {
 		select {
 		case err := <-errChan:
 			if err != nil {
-				w.SVCLog.Errorf("业务执行报错: %v", err)
+				w.Log.Errorf("业务执行报错: %v", err)
 				return false, 1
 			}
 			return false, 0
@@ -111,7 +102,7 @@ func (w *WinSVC) Execute(args []string, r <-chan svc.ChangeRequest, changes chan
 			case svc.Interrogate:
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
-				w.SVCLog.Infof("收到停止信号，执行优雅退出")
+				w.Log.Infof("收到停止信号，执行优雅退出")
 				cancel()
 				changes <- svc.Status{
 					State:    svc.StopPending,
@@ -120,7 +111,7 @@ func (w *WinSVC) Execute(args []string, r <-chan svc.ChangeRequest, changes chan
 				select {
 				case <-errChan:
 				case <-time.After(w.ShutdownWait):
-					w.SVCLog.Errorf("优雅退出超时")
+					w.Log.Errorf("优雅退出超时")
 				}
 				return false, 0
 			}

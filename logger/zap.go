@@ -24,9 +24,14 @@ const (
 	colorReset  = "\033[0m"
 )
 
-func InitLogger() {
+// init 包初始化时自动执行，完整初始化 logger
+func init() {
 	atomicLevel = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	zapSugarLogger = createFullLogger()
+}
 
+// createFullLogger 创建完整的 logger（控制台 + 可选文件）
+func createFullLogger() *zap.SugaredLogger {
 	baseEncoderConfig := zapcore.EncoderConfig{
 		TimeKey:       "t",
 		LevelKey:      "l",
@@ -78,9 +83,14 @@ func InitLogger() {
 	}
 
 	if isWindowsService() {
-		exePath, _ := os.Executable()
+		exePath, err := os.Executable()
+		if err != nil {
+			panic("获取可执行文件路径失败: " + err.Error())
+		}
 		logDir := filepath.Join(filepath.Dir(exePath), "logs")
-		_ = os.MkdirAll(logDir, 0755)
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			panic("创建日志目录失败: " + err.Error())
+		}
 		lumberjackLogger := &lumberjack.Logger{
 			Filename:   filepath.Join(logDir, "app.log"),
 			MaxSize:    20,

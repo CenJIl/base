@@ -4,24 +4,17 @@ package server
 
 import (
 	"context"
+	"time"
+
+	"github.com/CenJIl/base/common"
 )
-
-type Logger interface {
-	Infof(format string, v ...any)
-	Errorf(format string, v ...any)
-}
-
-type defaultLog struct{}
-
-func (l *defaultLog) Infof(f string, v ...any)  {}
-func (l *defaultLog) Errorf(f string, v ...any) {}
 
 type WinSVC struct {
 	Name         string
 	DisplayName  string
 	Description  string
-	Log          Logger
-	ShutdownWait int
+	Log          common.Logger
+	ShutdownWait time.Duration
 	Handler      func(ctx context.Context) error
 }
 

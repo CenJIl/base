@@ -2,13 +2,13 @@ package cfg
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/CenJIl/base/common"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -17,64 +17,65 @@ const (
 )
 
 var (
+	initOnce       sync.Once
 	currentConfig  atomic.Pointer[any]
 	changeHandlers []func(any)
 	handlerMutex   sync.Mutex
-	cfgLog         CfgLogger
+	cfgLog         common.Logger
 )
 
-type CfgLogger interface {
-	Info(msg string)
-	Error(msg string)
-}
+// InitConfigWithLogger 初始化配置，失败直接 panic，使用 sync.Once 保证只初始化一次
+func InitConfigWithLogger[T any](defaultConfigRaw []byte, log common.Logger) {
+	initOnce.Do(func() {
+		cfgLog = log
+		var cfg T
 
-type defaultLog struct{}
-
-func (l *defaultLog) Info(msg string)  { log.Printf("INFO  %s", msg) }
-func (l *defaultLog) Error(msg string) { log.Printf("ERROR %s", msg) }
-
-// 使用go:embed 嵌入默认配置文件
-func InitConfigWithLogger[T any](defaultConfigRaw []byte, log CfgLogger) error {
-	cfgLog = log
-	var cfg T
-
-	exePath, _ := os.Executable()
-	configFilePath := filepath.Join(filepath.Dir(exePath), configFileName)
-
-	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-		cfgLog.Info("配置文件不存在，写入默认配置")
-		_ = os.WriteFile(configFilePath, defaultConfigRaw, 0644)
-		if err := json.Unmarshal(defaultConfigRaw, &cfg); err != nil {
-			return err
-		}
-	} else {
-		data, err := os.ReadFile(configFilePath)
+		exePath, err := os.Executable()
 		if err != nil {
-			cfgLog.Error("读取配置文件失败，使用内存默认值")
-			if err := json.Unmarshal(defaultConfigRaw, &cfg); err != nil {
-				return err
-			}
-		} else if err := json.Unmarshal(data, &cfg); err != nil {
-			cfgLog.Error("配置解析失败，使用内存默认值")
-			_ = json.Unmarshal(defaultConfigRaw, &cfg)
+			panic("获取可执行文件路径失败: " + err.Error())
 		}
-	}
+		configFilePath := filepath.Join(filepath.Dir(exePath), configFileName)
 
-	var anyCfg any = &cfg
-	currentConfig.Store(&anyCfg)
+		if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+			cfgLog.Infof("配置文件不存在，写入默认配置")
+			_ = os.WriteFile(configFilePath, defaultConfigRaw, 0644)
+			if err := json.Unmarshal(defaultConfigRaw, &cfg); err != nil {
+				panic("配置初始化失败: " + err.Error())
+			}
+		} else {
+			data, err := os.ReadFile(configFilePath)
+			if err != nil {
+				cfgLog.Errorf("读取配置文件失败，使用内存默认值")
+				if err := json.Unmarshal(defaultConfigRaw, &cfg); err != nil {
+					panic("配置初始化失败: " + err.Error())
+				}
+			} else if err := json.Unmarshal(data, &cfg); err != nil {
+				cfgLog.Errorf("配置解析失败，使用内存默认值")
+				_ = json.Unmarshal(defaultConfigRaw, &cfg)
+			}
+		}
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	go watchConfig[T](watcher, configFilePath)
+		var anyCfg any = &cfg
+		currentConfig.Store(&anyCfg)
 
-	return watcher.Add(configFilePath)
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			panic("创建文件监听失败: " + err.Error())
+		}
+
+		// 先 Add 文件，成功后再启动 goroutine，保证原子性
+		if err := watcher.Add(configFilePath); err != nil {
+			watcher.Close()
+			panic("添加文件监听失败: " + err.Error())
+		}
+
+		go watchConfig[T](watcher, configFilePath)
+	})
 }
 
 // InitConfig 初始化配置，使用默认日志记录器
-func InitConfig[T any](defaultConfigRaw []byte) error {
-	return InitConfigWithLogger[T](defaultConfigRaw, &defaultLog{})
+func InitConfig[T any](defaultConfigRaw []byte) {
+	InitConfigWithLogger[T](defaultConfigRaw, &common.DefaultLog{})
 }
 
 func watchConfig[T any](watcher *fsnotify.Watcher, configFilePath string) {
@@ -105,7 +106,7 @@ func watchConfig[T any](watcher *fsnotify.Watcher, configFilePath string) {
 				}
 				var cfg T
 				if err := json.Unmarshal(data, &cfg); err != nil {
-					cfgLog.Error("配置热更新解析失败")
+					cfgLog.Errorf("配置热更新解析失败")
 					return
 				}
 				var anyCfg any = &cfg
@@ -116,7 +117,7 @@ func watchConfig[T any](watcher *fsnotify.Watcher, configFilePath string) {
 					go h(anyCfg)
 				}
 				handlerMutex.Unlock()
-				cfgLog.Info("配置已热更新")
+				cfgLog.Infof("配置已热更新")
 			})
 			timerMu.Unlock()
 
@@ -124,7 +125,7 @@ func watchConfig[T any](watcher *fsnotify.Watcher, configFilePath string) {
 			if !ok {
 				return
 			}
-			cfgLog.Error("配置监听错误: " + err.Error())
+			cfgLog.Errorf("配置监听错误: %s", err.Error())
 		}
 	}
 }
