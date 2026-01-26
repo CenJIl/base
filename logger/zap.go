@@ -27,11 +27,6 @@ const (
 // init 包初始化时自动执行，完整初始化 logger
 func init() {
 	atomicLevel = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	zapSugarLogger = createFullLogger()
-}
-
-// createFullLogger 创建完整的 logger（控制台 + 可选文件）
-func createFullLogger() *zap.SugaredLogger {
 	baseEncoderConfig := zapcore.EncoderConfig{
 		TimeKey:       "t",
 		LevelKey:      "l",

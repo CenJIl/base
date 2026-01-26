@@ -36,7 +36,7 @@ func InitConfigWithLogger[T any](defaultConfigRaw []byte, log common.Logger) {
 		}
 		configFilePath := filepath.Join(filepath.Dir(exePath), configFileName)
 
-		if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+		if _, err = os.Stat(configFilePath); os.IsNotExist(err) {
 			cfgLog.Infof("配置文件不存在，写入默认配置")
 			_ = os.WriteFile(configFilePath, defaultConfigRaw, 0644)
 			if err := json.Unmarshal(defaultConfigRaw, &cfg); err != nil {
