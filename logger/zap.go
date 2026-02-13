@@ -24,7 +24,6 @@ const (
 	colorReset  = "\033[0m"
 )
 
-// init 包初始化时自动执行，完整初始化 logger
 func init() {
 	atomicLevel = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	baseEncoderConfig := zapcore.EncoderConfig{
@@ -73,7 +72,6 @@ func init() {
 	}
 
 	coreConfigs := []zapcore.Core{
-		// 控制台输出（彩色）
 		zapcore.NewCore(zapcore.NewConsoleEncoder(consoleEncoderConfig), zapcore.AddSync(os.Stdout), atomicLevel),
 	}
 
@@ -100,10 +98,53 @@ func init() {
 	zapSugarLogger = zap.New(zapcore.NewTee(coreConfigs...)).Sugar()
 }
 
+// GetLogger 返回全局日志记录器实例
+//
+// 返回的是一个 zap.SugaredLogger 实例，支持结构化日志记录。
+// 此日志记录器是全局唯一的，在包初始化时自动创建。
+//
+// 输出目标
+//   - 控制台：始终输出到标准输出，带彩色级别标识
+//   - 文件：当作为 Windows 服务运行时，自动输出到 logs/app.log
+//
+// 返回值
+//
+//	*zap.SugaredLogger - Zap 的结构化日志记录器，支持多种日志方法
+//
+// 注意事项
+//   - 日志记录器在包导入时自动初始化，无需手动调用
+//   - 返回的日志记录器是全局单例，所有调用共享同一个实例
+//   - 文件日志仅在 Windows 服务模式下启用
+//   - 日志文件会自动轮转（最大 20MB，保留 30 天，最多 10 个备份）
+//
+// 示例
+//
+//	logger := logger.GetLogger()
+//	logger.Info("应用启动", "version", "1.0.0")
+//	logger.Errorf("操作失败", "error", err)
 func GetLogger() *zap.SugaredLogger {
 	return zapSugarLogger
 }
 
+// UpdateLogLevel 动态更新日志级别
+//
+// 允许在运行时动态调整日志级别，无需重启程序。
+// 支持的级别：debug, info, warn, error（不区分大小写）
+//
+// 参数
+//
+//	level - 目标日志级别字符串，支持 "debug", "info", "warn", "error"（大小写不敏感）
+//
+// 注意事项
+//   - 级别字符串会自动 trim 空白和转换为小写
+//   - 如果传入无效的级别，记录错误日志但不修改当前级别
+//   - 修改成功后会记录日志，显示旧级别到新级别的变更
+//   - 日志级别变更立即生效，影响后续所有日志输出
+//
+// 示例
+//
+//	logger.UpdateLogLevel("debug")  // 开启 debug 日志
+//	logger.UpdateLogLevel("INFO")   // 切换到 info 级别
 func UpdateLogLevel(level string) {
 	var l zapcore.Level
 	err := l.UnmarshalText([]byte(strings.ToLower(strings.TrimSpace(level))))

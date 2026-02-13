@@ -1,0 +1,4 @@
+welcome = "欢迎使用 My App"
+welcomeWithName = "欢迎，{{.Name}}！"
+hello = "你好世界"
+goodbye = "再见"
