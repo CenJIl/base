@@ -12,6 +12,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.11.2
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
