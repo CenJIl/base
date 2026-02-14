@@ -8,7 +8,11 @@
       "Bash(go install:*)",
       "Bash(ls:*)",
       "Bash(go clean:*)",
-      "Bash(go list:*)"
+      "Bash(go list:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

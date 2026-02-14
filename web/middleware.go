@@ -2,10 +2,48 @@ package web
 
 import (
 	"context"
+	"time"
 
 	"github.com/CenJIl/base/logger"
 	"github.com/cloudwego/hertz/pkg/app"
 )
+
+// RecoveryMiddleware 恢复中间件
+//
+// 捕获 panic 并转换为统一的错误响应
+func RecoveryMiddleware() app.HandlerFunc {
+	return func(ctx context.Context, c *app.RequestContext) {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Errorf("[PANIC] %v", r)
+				c.JSON(500, Fail(500, "Internal server error"))
+				c.Abort()
+			}
+		}()
+		c.Next(ctx)
+	}
+}
+
+// LoggerMiddleware 日志中间件
+//
+// 记录每个请求的详细信息
+func LoggerMiddleware() app.HandlerFunc {
+	return func(ctx context.Context, c *app.RequestContext) {
+		start := time.Now()
+		path := c.Path()
+		method := string(c.Method())
+		clientIP := c.ClientIP()
+
+		logger.Debugf("[Request] %s %s from %s", method, path, clientIP)
+
+		c.Next(ctx)
+
+		latency := time.Since(start)
+		status := c.Response.StatusCode()
+		logger.Debugf("[Response] %s %s -> %d (Latency: %v)",
+			method, path, status, latency)
+	}
+}
 
 // getHTTPStatus 根据业务码获取 HTTP 状态码
 func getHTTPStatus(code int) int {
