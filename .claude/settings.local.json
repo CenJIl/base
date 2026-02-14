@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(timeout:*)",
+      "Bash(go get:*)",
+      "Bash(go install:*)",
+      "Bash(ls:*)",
+      "Bash(go clean:*)",
+      "Bash(go list:*)"
+    ]
+  }
+}

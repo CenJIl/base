@@ -1,0 +1,53 @@
+-- ============================================
+-- 文章相关 SQL 查询（sqlc 示例）
+-- ============================================
+
+-- name: CreatePost :exec
+INSERT INTO posts (author_id, title, content, status)
+VALUES (?, ?, ?, ?);
+
+-- name: GetPostByID :one
+SELECT id, author_id, title, content, status, view_count, created_at, updated_at
+FROM posts
+WHERE id = ?;
+
+-- name: ListPostsByAuthor :many
+SELECT id, author_id, title, content, status, view_count, created_at, updated_at
+FROM posts
+WHERE author_id = ?
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?;
+
+-- name: ListPublishedPosts :many
+SELECT p.id, p.author_id, p.title, p.content, p.status, p.view_count, p.created_at, p.updated_at,
+       u.name as author_name
+FROM posts p
+INNER JOIN users u ON p.author_id = u.id
+WHERE p.status = 'published'
+ORDER BY p.created_at DESC
+LIMIT ? OFFSET ?;
+
+-- name: UpdatePost :exec
+UPDATE posts
+SET title = ?, content = ?, status = ?
+WHERE id = ?;
+
+-- name: IncrementPostViewCount :exec
+UPDATE posts
+SET view_count = view_count + 1
+WHERE id = ?;
+
+-- name: DeletePost :exec
+DELETE FROM posts WHERE id = ?;
+
+-- name: CountPostsByAuthor :one
+SELECT COUNT(*)
+FROM posts
+WHERE author_id = ?;
+
+-- name: GetPostWithAuthor :one
+SELECT p.id, p.author_id, p.title, p.content, p.status, p.view_count, p.created_at, p.updated_at,
+       u.name as author_name, u.email as author_email
+FROM posts p
+INNER JOIN users u ON p.author_id = u.id
+WHERE p.id = ?;

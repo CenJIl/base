@@ -1,0 +1,32 @@
+-- ============================================
+-- 示例数据库表结构
+-- ============================================
+
+-- 用户表
+CREATE TABLE users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'user',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 文章表
+CREATE TABLE posts (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    author_id BIGINT UNSIGNED NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    status VARCHAR(50) DEFAULT 'draft',
+    view_count INT UNSIGNED DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_author_id (author_id),
+    INDEX idx_status (status),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
