@@ -12,7 +12,7 @@ import (
 // Upgrader HTTP 升级为 WebSocket 的配置
 var Upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
-	WriteBufferSize:  1024,
+	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		// TODO: 生产环境应该验证 Origin
 		return true
@@ -32,18 +32,19 @@ func ConfigureUpgrader(config Config) {
 // 使用 Hub 管理连接池
 //
 // 使用方式：
-//   hub := ws.NewHub()
-//   h.GET("/ws", func(ctx context.Context, c *app.RequestContext) {
-//       conn, err := ws.UpgradeHTTP(c)
-//       if err != nil {
-//           logger.Errorf("WS upgrade failed: %v", err)
-//           return
-//       }
-//       connection := ws.NewConnection(conn, hub)
-//       hub.Register(connection)
-//       go connection.ReadPump()
-//       go connection.WritePump()
-//   })
+//
+//	hub := ws.NewHub()
+//	h.GET("/ws", func(ctx context.Context, c *app.RequestContext) {
+//	    conn, err := ws.UpgradeHTTP(c)
+//	    if err != nil {
+//	        logger.Errorf("WS upgrade failed: %v", err)
+//	        return
+//	    }
+//	    connection := ws.NewConnection(conn, hub)
+//	    hub.Register(connection)
+//	    go connection.ReadPump()
+//	    go connection.WritePump()
+//	})
 func UpgradeHTTP(c *app.RequestContext) (*websocket.Conn, error) {
 	// 注意：Hertz 和 gorilla/websocket 的接口不完全兼容
 	// 实际使用中，建议直接使用 gorilla/websocket 的标准用法

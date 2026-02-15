@@ -16,7 +16,8 @@ import (
 // 自动检查文件是否存在，设置 Content-Disposition 头
 //
 // 使用方式：
-//   web.DownloadFile(c, "/path/to/file.pdf", "download.pdf")
+//
+//	web.DownloadFile(c, "/path/to/file.pdf", "download.pdf")
 func DownloadFile(c *app.RequestContext, filePath string, filename string) {
 	// 检查文件是否存在
 	fileInfo, err := os.Stat(filePath)
@@ -42,7 +43,8 @@ func DownloadFile(c *app.RequestContext, filePath string, filename string) {
 // 支持 HTTP Range 请求，实现断点续传
 //
 // 使用方式：
-//   web.DownloadWithRange(c, "/path/to/largefile.zip", "largefile.zip")
+//
+//	web.DownloadWithRange(c, "/path/to/largefile.zip", "largefile.zip")
 func DownloadWithRange(c *app.RequestContext, filePath string, filename string) {
 	// 检查文件是否存在
 	fileInfo, err := os.Stat(filePath)
@@ -119,9 +121,10 @@ func DownloadWithRange(c *app.RequestContext, filePath string, filename string) 
 // FileExists 检查文件是否存在
 //
 // 使用方式：
-//   if !web.FileExists("/path/to/file.pdf") {
-//       panic(web.NotFoundHTTP("文件不存在"))
-//   }
+//
+//	if !web.FileExists("/path/to/file.pdf") {
+//	    panic(web.NotFoundHTTP("文件不存在"))
+//	}
 func FileExists(filePath string) bool {
 	_, err := os.Stat(filePath)
 	return !os.IsNotExist(err)
@@ -130,7 +133,8 @@ func FileExists(filePath string) bool {
 // GetFileMimeType 根据 MIME 类型返回 Content-Type
 //
 // 使用方式：
-//   mimeType := web.GetFileMimeType("image.jpg") // 返回: image/jpeg
+//
+//	mimeType := web.GetFileMimeType("image.jpg") // 返回: image/jpeg
 func GetFileMimeType(filename string) string {
 	ext := strings.ToLower(filepath.Ext(filename))
 	mimeTypes := map[string]string{

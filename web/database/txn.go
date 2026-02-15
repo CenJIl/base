@@ -12,10 +12,11 @@ import (
 // Transaction 事务辅助函数
 //
 // 使用方式：
-//   result, err := database.Transaction(ctx, c, func(tx *sql.Tx) (any, error) {
-//       _, err := tx.Exec("UPDATE users SET name = ? WHERE id = ?", "newname", 123)
-//       return nil, err
-//   })
+//
+//	result, err := database.Transaction(ctx, c, func(tx *sql.Tx) (any, error) {
+//	    _, err := tx.Exec("UPDATE users SET name = ? WHERE id = ?", "newname", 123)
+//	    return nil, err
+//	})
 func Transaction(ctx context.Context, c *app.RequestContext, fn func(*sql.Tx) (any, error)) (any, error) {
 	// 从上下文获取事务
 	tx, ok := c.MustGet("tx").(*sql.Tx)
@@ -37,7 +38,8 @@ func Transaction(ctx context.Context, c *app.RequestContext, fn func(*sql.Tx) (a
 // 每个请求自动开启事务，提交或回滚
 //
 // 使用方式：
-//   h.Use(database.DBMiddleware())
+//
+//	h.Use(database.DBMiddleware())
 func DBMiddleware() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		if DB == nil {
@@ -74,7 +76,8 @@ func DBMiddleware() app.HandlerFunc {
 // GetTx 从上下文获取事务
 //
 // 使用方式：
-//   tx := database.GetTx(c)
+//
+//	tx := database.GetTx(c)
 func GetTx(c *app.RequestContext) *sql.Tx {
 	tx, _ := c.Get("tx")
 	return tx.(*sql.Tx)

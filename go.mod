@@ -9,6 +9,10 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
+	github.com/hertz-contrib/cors v0.5.0
+	github.com/hertz-contrib/jwt v0.3.1
+	github.com/hertz-contrib/swagger v0.4.0
+	github.com/hertz-contrib/i18n v0.2.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.11.2
 	github.com/nicksnyder/go-i18n/v2 v2.6.1

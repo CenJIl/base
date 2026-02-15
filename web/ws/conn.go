@@ -9,16 +9,17 @@ import (
 
 // Connection WebSocket 连接封装
 type Connection struct {
-	hub  *Hub          // 连接池
+	hub  *Hub            // 连接池
 	ws   *websocket.Conn // WebSocket 连接
-	send chan []byte    // 发送队列
+	send chan []byte     // 发送队列
 	id   string          // 连接 ID
 }
 
 // NewConnection 创建新连接
 //
 // 使用方式：
-//   conn := ws.NewConnection(wsConn, hub)
+//
+//	conn := ws.NewConnection(wsConn, hub)
 func NewConnection(wsConn *websocket.Conn, hub *Hub) *Connection {
 	return &Connection{
 		hub:  hub,
@@ -98,7 +99,8 @@ func (c *Connection) WritePump() {
 // Send 发送消息（非阻塞）
 //
 // 使用方式：
-//   conn.Send([]byte("hello"))
+//
+//	conn.Send([]byte("hello"))
 func (c *Connection) Send(message []byte) {
 	select {
 	case c.send <- message:
@@ -113,7 +115,8 @@ func (c *Connection) Send(message []byte) {
 // Close 关闭连接
 //
 // 使用方式：
-//   conn.Close()
+//
+//	conn.Close()
 func (c *Connection) Close() {
 	close(c.send)
 }
@@ -121,7 +124,8 @@ func (c *Connection) Close() {
 // ID 获取连接 ID
 //
 // 使用方式：
-//   id := conn.ID()
+//
+//	id := conn.ID()
 func (c *Connection) ID() string {
 	return c.id
 }

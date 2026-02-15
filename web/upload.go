@@ -15,10 +15,10 @@ import (
 
 // UploadConfig 上传配置
 type UploadConfig struct {
-	MaxFileSize int64    `toml:"maxFileSize"`   // 单文件最大大小（字节）
-	AllowedExts []string `toml:"allowedExts"`   // 允许的扩展名（如 [".jpg", ".png"]）
-	UploadPath  string   `toml:"uploadPath"`    // 上传保存路径
-	URLPrefix   string   `toml:"urlPrefix"`     // 访问 URL 前缀
+	MaxFileSize int64    `toml:"maxFileSize"` // 单文件最大大小（字节）
+	AllowedExts []string `toml:"allowedExts"` // 允许的扩展名（如 [".jpg", ".png"]）
+	UploadPath  string   `toml:"uploadPath"`  // 上传保存路径
+	URLPrefix   string   `toml:"urlPrefix"`   // 访问 URL 前缀
 }
 
 // UploadMiddleware 上传中间件（验证 + 限制）
@@ -26,7 +26,8 @@ type UploadConfig struct {
 // 检查 Content-Type 并将配置保存到上下文，供 handler 使用
 //
 // 使用方式：
-//   h.POST("/upload", web.UploadMiddleware(config.Upload), uploadHandler)
+//
+//	h.POST("/upload", web.UploadMiddleware(config.Upload), uploadHandler)
 func UploadMiddleware(config UploadConfig) app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		// 检查 Content-Type
@@ -46,8 +47,9 @@ func UploadMiddleware(config UploadConfig) app.HandlerFunc {
 // 自动创建父目录
 //
 // 使用方式：
-//   file, _ := c.FormFile("file")
-//   err := web.SaveUploadedFile(file, "/path/to/save/filename.ext")
+//
+//	file, _ := c.FormFile("file")
+//	err := web.SaveUploadedFile(file, "/path/to/save/filename.ext")
 func SaveUploadedFile(file *multipart.FileHeader, dst string) error {
 	src, err := file.Open()
 	if err != nil {
@@ -79,10 +81,11 @@ func SaveUploadedFile(file *multipart.FileHeader, dst string) error {
 // 不区分大小写
 //
 // 使用方式：
-//   allowed := []string{".jpg", ".png", ".pdf"}
-//   if !web.IsAllowedExt("image.JPG", allowed) {
-//       return "不支持的文件类型"
-//   }
+//
+//	allowed := []string{".jpg", ".png", ".pdf"}
+//	if !web.IsAllowedExt("image.JPG", allowed) {
+//	    return "不支持的文件类型"
+//	}
 func IsAllowedExt(filename string, allowedExts []string) bool {
 	ext := strings.ToLower(filepath.Ext(filename))
 	for _, allowed := range allowedExts {
@@ -98,10 +101,11 @@ func IsAllowedExt(filename string, allowedExts []string) bool {
 // 返回错误信息，验证通过返回 nil
 //
 // 使用方式：
-//   file, _ := c.FormFile("file")
-//   if err := web.ValidateFile(file, config.Upload); err != nil {
-//       panic(web.BadRequestHTTP(err.Error()))
-//   }
+//
+//	file, _ := c.FormFile("file")
+//	if err := web.ValidateFile(file, config.Upload); err != nil {
+//	    panic(web.BadRequestHTTP(err.Error()))
+//	}
 func ValidateFile(file *multipart.FileHeader, config UploadConfig) error {
 	// 检查大小
 	if file.Size > config.MaxFileSize {
@@ -123,8 +127,9 @@ func ValidateFile(file *multipart.FileHeader, config UploadConfig) error {
 // GetUploadConfig 从上下文获取上传配置
 //
 // 使用方式：
-//   config := web.GetUploadConfig(c)
-//   maxsize := config.MaxFileSize
+//
+//	config := web.GetUploadConfig(c)
+//	maxsize := config.MaxFileSize
 func GetUploadConfig(c *app.RequestContext) UploadConfig {
 	v, _ := c.Get("upload_config")
 	if v != nil {
@@ -140,7 +145,8 @@ func GetUploadConfig(c *app.RequestContext) UploadConfig {
 // 使用时间戳 + 原始扩展名，避免文件名冲突
 //
 // 使用方式：
-//   filename := web.GenerateFilename("photo.jpg") // 返回: 20240215123456.jpg
+//
+//	filename := web.GenerateFilename("photo.jpg") // 返回: 20240215123456.jpg
 func GenerateFilename(originalFilename string) string {
 	ext := filepath.Ext(originalFilename)
 	// 移除扩展名中的特殊字符

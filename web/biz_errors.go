@@ -39,7 +39,7 @@ func (e *ErrInternalError) Error() string {
 
 // ErrDatabaseError 数据库错误
 type ErrDatabaseError struct {
-	Err error // 原始错误
+	Err error  // 原始错误
 	SQL string // SQL 语句
 }
 

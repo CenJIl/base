@@ -15,8 +15,8 @@ import (
 // RateLimiterConfig rate limiter configuration
 type RateLimiterConfig struct {
 	RequestsPerSecond float64       // Requests per second
-	BurstSize        int           // Maximum burst size
-	CleanupInterval  time.Duration // Cleanup interval
+	BurstSize         int           // Maximum burst size
+	CleanupInterval   time.Duration // Cleanup interval
 }
 
 // IPRateLimiter IP-based rate limiter
@@ -32,8 +32,8 @@ func NewIPRateLimiter(rps float64, burst int) *IPRateLimiter {
 		limiters: make(map[string]*rate.Limiter),
 		config: &RateLimiterConfig{
 			RequestsPerSecond: rps,
-			BurstSize:        burst,
-			CleanupInterval:  5 * time.Minute,
+			BurstSize:         burst,
+			CleanupInterval:   5 * time.Minute,
 		},
 	}
 }
@@ -88,7 +88,7 @@ func RateLimitMiddleware() app.HandlerFunc {
 		if !globalIPRateLimiter.Allow(clientIP) {
 			logger.Warnf("Rate limit exceeded for IP: %s", clientIP)
 			c.JSON(consts.StatusTooManyRequests, map[string]any{
-				"code": 429,
+				"code":    429,
 				"message": "Rate limit exceeded",
 				"data": map[string]any{
 					"limit": fmt.Sprintf("%.0f req/s", globalIPRateLimiter.config.RequestsPerSecond),

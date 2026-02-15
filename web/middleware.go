@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/CenJIl/base/logger"
+	"github.com/CenJIl/base/web/middleware"
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
@@ -16,7 +17,9 @@ func RecoveryMiddleware() app.HandlerFunc {
 		defer func() {
 			if r := recover(); r != nil {
 				logger.Errorf("[PANIC] %v", r)
-				c.JSON(500, Fail(500, "Internal server error"))
+				result := Fail(500, "Internal server error")
+				result.TraceID = middleware.GetRequestID(c)
+				c.JSON(500, result)
 				c.Abort()
 			}
 		}()
@@ -66,22 +69,29 @@ func ExceptionHandler() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		defer func() {
 			if r := recover(); r != nil {
+				result := Result{}
 				switch err := r.(type) {
 				case *HTTPException:
 					// HTTP 异常
-					c.JSON(err.HTTPStatus, Fail(err.Code, err.Message))
+					result = Fail(err.Code, err.Message)
+					result.TraceID = middleware.GetRequestID(c)
+					c.JSON(err.HTTPStatus, result)
 					c.Abort()
 					return
 
 				case *Exception:
 					// 业务异常
-					c.JSON(getHTTPStatus(err.Code), Fail(err.Code, err.Message))
+					result = Fail(err.Code, err.Message)
+					result.TraceID = middleware.GetRequestID(c)
+					c.JSON(getHTTPStatus(err.Code), result)
 					c.Abort()
 					return
 
 				default:
 					logger.Errorf("[PANIC] Unhandled error: %v", err)
-					c.JSON(500, Fail(500, "Internal server error"))
+					result = Fail(500, "Internal server error")
+					result.TraceID = middleware.GetRequestID(c)
+					c.JSON(500, result)
 					c.Abort()
 				}
 			}

@@ -33,9 +33,10 @@ const (
 // InitDB 初始化数据库连接池（供 sqlc 使用）
 //
 // 使用方式：
-//   if err := web.InitDB(config.Database); err != nil {
-//       logger.Errorf("Failed to init database: %v", err)
-//   }
+//
+//	if err := web.InitDB(config.Database); err != nil {
+//	    logger.Errorf("Failed to init database: %v", err)
+//	}
 func InitDB(cfg DatabaseConfig) error {
 	if cfg.Driver == "" {
 		return nil // 未配置，跳过
@@ -90,7 +91,8 @@ func buildDSN(cfg DatabaseConfig) string {
 // Close 关闭数据库连接
 //
 // 使用方式：
-//   defer database.Close()
+//
+//	defer database.Close()
 func Close() error {
 	if DB != nil {
 		return DB.Close()

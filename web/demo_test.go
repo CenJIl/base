@@ -367,9 +367,9 @@ func ExampleScenario9_MiddlewareChain() {
 func ExampleScenario10_CompleteProject() {
 	// 步骤1：定义配置结构
 	type AppConfig struct {
-		AppName  string `toml:"appName"`
-		JWTSecret string `toml:"jwtSecret"`
-		web.Config   // 必须内嵌 web.Config
+		AppName    string `toml:"appName"`
+		JWTSecret  string `toml:"jwtSecret"`
+		web.Config        // 必须内嵌 web.Config
 	}
 
 	// 步骤2：初始化配置

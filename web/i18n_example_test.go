@@ -15,16 +15,16 @@ func ExampleI18nUsage() {
 	// 预加载所有翻译到内存（性能优化）
 	web.InitI18n(map[string]map[string]map[string]string{
 		"zh-CN": {
-			"welcome":       "欢迎",
+			"welcome":        "欢迎",
 			"user.not_found": "用户不存在",
-			"login.success": "登录成功",
-			"hello.user":   "你好 %s",
+			"login.success":  "登录成功",
+			"hello.user":     "你好 %s",
 		},
 		"en-US": {
-			"welcome":       "Welcome",
+			"welcome":        "Welcome",
 			"user.not_found": "User not found",
-			"login.success": "Login successful",
-			"hello.user":   "Hello %s",
+			"login.success":  "Login successful",
+			"hello.user":     "Hello %s",
 		},
 	})
 

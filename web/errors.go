@@ -10,20 +10,20 @@ const (
 	OK ErrorCode = 0
 
 	// 客户端错误 (4xx) - 1xxxx
-	BadRequest       ErrorCode = 10001 // 参数错误
-	Unauthorized     ErrorCode = 10002 // 未授权
-	Forbidden        ErrorCode = 10003 // 禁止访问
-	NotFound         ErrorCode = 10004 // 资源不存在
-	Conflict         ErrorCode = 10009 // 资源冲突
+	BadRequest      ErrorCode = 10001 // 参数错误
+	Unauthorized    ErrorCode = 10002 // 未授权
+	Forbidden       ErrorCode = 10003 // 禁止访问
+	NotFound        ErrorCode = 10004 // 资源不存在
+	Conflict        ErrorCode = 10009 // 资源冲突
 	TooManyRequests ErrorCode = 10020 // 请求过多
 
 	// 业务逻辑错误 (2xxxx) - 可自定义
-	UserNotFound     ErrorCode = 20001 // 用户不存在
-	UserExists       ErrorCode = 20002 // 用户已存在
-	InvalidParam    ErrorCode = 20003 // 无效参数
+	UserNotFound ErrorCode = 20001 // 用户不存在
+	UserExists   ErrorCode = 20002 // 用户已存在
+	InvalidParam ErrorCode = 20003 // 无效参数
 
 	// 服务端错误 (5xxxx) - 可自定义
-	InternalError   ErrorCode = 50001 // 内部错误
+	InternalError ErrorCode = 50001 // 内部错误
 	DatabaseError ErrorCode = 50002 // 数据库错误
 )
 

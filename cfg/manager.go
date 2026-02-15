@@ -1,6 +1,8 @@
 package cfg
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -14,6 +16,11 @@ import (
 
 const (
 	configFileName = "config.toml"
+)
+
+var (
+	ErrConfigNotFound = errors.New("config file not found")
+	ErrConfigInvalid  = errors.New("config file is invalid")
 )
 
 var (
@@ -54,7 +61,6 @@ var (
 //	}
 //
 //	defaultConfig := []byte(`appName = "MyApp"
-//
 // port = 8080
 // debug = true`)
 //
@@ -70,10 +76,12 @@ func InitConfigWithLogger[T any](defaultConfigRaw []byte, log common.Logger) {
 		}
 		configFilePath := filepath.Join(filepath.Dir(exePath), configFileName)
 
-		if _, err = os.Stat(configFilePath); os.IsNotExist(err) {
-			cfgLog.Infof("配置文件不存在，写入默认配置")
-			_ = os.WriteFile(configFilePath, defaultConfigRaw, 0644)
-			if err = toml.Unmarshal(defaultConfigRaw, &cfg); err != nil {
+		if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+			cfgLog.Infof("配置文件不存在，写入默认配置: %s", configFilePath)
+			if err := os.WriteFile(configFilePath, defaultConfigRaw, 0644); err != nil {
+				panic("创建配置文件失败: " + err.Error())
+			}
+			if err := toml.Unmarshal(defaultConfigRaw, &cfg); err != nil {
 				panic("配置初始化失败: " + err.Error())
 			}
 		} else {
@@ -122,6 +130,79 @@ func InitConfig[T any](defaultConfigRaw []byte) {
 	InitConfigWithLogger[T](defaultConfigRaw, &common.DefaultLog{})
 }
 
+// LoadConfig 从指定路径加载配置（Web 脚手架模式）
+//
+// 直接读取文件，如果文件不存在则返回错误
+// 不会创建任何文件
+//
+// 适用场景：
+//   - Web 应用
+//   - 脚手架项目
+//   - 配置文件由用户管理的场景
+//
+// 参数
+//
+//	configPath - 配置文件路径
+//
+// 返回值
+//
+//	error - 文件不存在或解析失败时返回错误
+//
+// 示例
+//
+//	err := cfg.LoadConfig[AppConfig]("config/config.toml")
+//	if err != nil {
+//	    log.Fatal("配置加载失败: %v", err)
+//	}
+func LoadConfig[T any](configPath string) error {
+	// 检查文件是否存在
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return fmt.Errorf("%w: %s", ErrConfigNotFound, configPath)
+	}
+
+	return loadConfig[T](configPath)
+}
+
+
+// loadConfig 内部加载函数
+func loadConfig[T any](configPath string) error {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("读取配置文件失败: %w", err)
+	}
+
+	var cfg T
+	if err := toml.Unmarshal(data, &cfg); err != nil {
+		return fmt.Errorf("%w: %w", ErrConfigInvalid, err)
+	}
+
+	var anyCfg any = &cfg
+	currentConfig.Store(&anyCfg)
+
+	// 启动文件监听（支持热更新）
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("创建文件监听失败: %w", err)
+	}
+
+	if err := watcher.Add(configPath); err != nil {
+		watcher.Close()
+		return fmt.Errorf("添加文件监听失败: %w", err)
+	}
+
+	// 使用 InitConfig 的 initOnce，确保只初始化一次
+	initOnce.Do(func() {
+		// 设置默认日志器（如果用户没有通过 InitConfigWithLogger 设置）
+		if cfgLog == nil {
+			cfgLog = &common.DefaultLog{}
+		}
+	})
+
+	go watchConfig[T](watcher, configPath)
+
+	return nil
+}
+
 // GetCfg 获取当前配置的指针
 //
 // 返回当前配置的只读指针。如果配置未初始化，返回零值指针。
@@ -133,7 +214,7 @@ func InitConfig[T any](defaultConfigRaw []byte) {
 //
 // 注意事项
 //   - 返回的指针指向配置的当前状态，配置热更新后需要重新调用获取最新值
-//   - 如果未调用 InitConfig 初始化，返回零值指针
+//   - 如果未调用 InitConfig/LoadConfig 初始化，返回零值指针
 //   - 此方法不复制配置，直接返回内部指针，不要修改返回值的内容
 //
 // 示例
@@ -202,11 +283,12 @@ func watchConfig[T any](watcher *fsnotify.Watcher, configFilePath string) {
 			timer = time.AfterFunc(debounce, func() {
 				data, err := os.ReadFile(configFilePath)
 				if err != nil {
+					cfgLog.Errorf("配置热更新读取失败: %v", err)
 					return
 				}
 				var cfg T
 				if err := toml.Unmarshal(data, &cfg); err != nil {
-					cfgLog.Errorf("配置热更新解析失败")
+					cfgLog.Errorf("配置热更新解析失败: %v", err)
 					return
 				}
 				var anyCfg any = &cfg

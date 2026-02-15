@@ -10,19 +10,20 @@ import (
 //
 // 管理所有 WebSocket 连接，支持广播和点对点消息
 type Hub struct {
-	connections map[string]*Connection // 连接映射（ID -> Connection）
-	register    chan *Connection       // 注册连接
-	unregister  chan *Connection       // 注销连接
-	broadcast   chan []byte           // 广播消息
-	mu          sync.RWMutex          // 读写锁
-	onMessage  func(*Connection, []byte) // 消息处理回调
+	connections map[string]*Connection    // 连接映射（ID -> Connection）
+	register    chan *Connection          // 注册连接
+	unregister  chan *Connection          // 注销连接
+	broadcast   chan []byte               // 广播消息
+	mu          sync.RWMutex              // 读写锁
+	onMessage   func(*Connection, []byte) // 消息处理回调
 }
 
 // NewHub 创建新的连接池
 //
 // 使用方式：
-//   hub := ws.NewHub()
-//   go hub.Run()
+//
+//	hub := ws.NewHub()
+//	go hub.Run()
 func NewHub() *Hub {
 	return &Hub{
 		connections: make(map[string]*Connection),
@@ -35,8 +36,9 @@ func NewHub() *Hub {
 // Run 启动连接池（阻塞运行）
 //
 // 使用方式：
-//   hub := ws.NewHub()
-//   go hub.Run()  // 在独立协程中运行
+//
+//	hub := ws.NewHub()
+//	go hub.Run()  // 在独立协程中运行
 func (h *Hub) Run() {
 	for {
 		select {
@@ -75,7 +77,8 @@ func (h *Hub) Run() {
 // Register 注册连接
 //
 // 使用方式：
-//   hub.Register(conn)
+//
+//	hub.Register(conn)
 func (h *Hub) Register(conn *Connection) {
 	h.register <- conn
 }
@@ -83,7 +86,8 @@ func (h *Hub) Register(conn *Connection) {
 // Unregister 注销连接
 //
 // 使用方式：
-//   hub.Unregister(conn)
+//
+//	hub.Unregister(conn)
 func (h *Hub) Unregister(conn *Connection) {
 	h.unregister <- conn
 }
@@ -91,7 +95,8 @@ func (h *Hub) Unregister(conn *Connection) {
 // Broadcast 广播消息给所有连接
 //
 // 使用方式：
-//   hub.Broadcast([]byte("system notification"))
+//
+//	hub.Broadcast([]byte("system notification"))
 func (h *Hub) Broadcast(message []byte) {
 	h.broadcast <- message
 }
@@ -99,7 +104,8 @@ func (h *Hub) Broadcast(message []byte) {
 // SendTo 发送消息给指定连接
 //
 // 使用方式：
-//   hub.SendTo("conn-id", []byte("private message"))
+//
+//	hub.SendTo("conn-id", []byte("private message"))
 func (h *Hub) SendTo(connID string, message []byte) error {
 	h.mu.RLock()
 	conn, ok := h.connections[connID]
@@ -116,7 +122,8 @@ func (h *Hub) SendTo(connID string, message []byte) error {
 // GetConnection 获取指定连接
 //
 // 使用方式：
-//   conn := hub.GetConnection("conn-id")
+//
+//	conn := hub.GetConnection("conn-id")
 func (h *Hub) GetConnection(connID string) (*Connection, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -127,7 +134,8 @@ func (h *Hub) GetConnection(connID string) (*Connection, bool) {
 // GetConnectionCount 获取当前连接数
 //
 // 使用方式：
-//   count := hub.GetConnectionCount()
+//
+//	count := hub.GetConnectionCount()
 func (h *Hub) GetConnectionCount() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -137,7 +145,8 @@ func (h *Hub) GetConnectionCount() int {
 // GetConnections 获取所有连接
 //
 // 使用方式：
-//   conns := hub.GetConnections()
+//
+//	conns := hub.GetConnections()
 func (h *Hub) GetConnections() []*Connection {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -152,9 +161,10 @@ func (h *Hub) GetConnections() []*Connection {
 // OnMessage 设置消息处理回调
 //
 // 使用方式：
-//   hub.OnMessage(func(conn *ws.Connection, msg []byte) {
-//       logger.Infof("Received: %s", msg)
-//   })
+//
+//	hub.OnMessage(func(conn *ws.Connection, msg []byte) {
+//	    logger.Infof("Received: %s", msg)
+//	})
 func (h *Hub) OnMessage(handler func(*Connection, []byte)) {
 	h.onMessage = handler
 }

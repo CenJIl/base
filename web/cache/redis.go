@@ -10,7 +10,7 @@ import (
 
 // RedisConfig Redis 配置
 type RedisConfig struct {
-	Address  string `toml:"address"` // Redis 地址
+	Address  string `toml:"address"`  // Redis 地址
 	Password string `toml:"password"` // Redis 密码
 	DB       int    `toml:"db"`       // Redis DB
 }
@@ -21,9 +21,10 @@ var Client *redis.Client
 // InitRedis 初始化 Redis
 //
 // 使用方式：
-//   if err := web.InitRedis(cfg.RedisConfig); err != nil {
-//       logger.Errorf("Failed to init redis: %v", err)
-//   }
+//
+//	if err := web.InitRedis(cfg.RedisConfig); err != nil {
+//	    logger.Errorf("Failed to init redis: %v", err)
+//	}
 func InitRedis(cfg RedisConfig) error {
 	if cfg.Address == "" {
 		return nil // 未配置，跳过
@@ -51,7 +52,8 @@ func InitRedis(cfg RedisConfig) error {
 // Get 获取缓存
 //
 // 使用方式：
-//   val, err := web.Get(ctx, "user:123").Result()
+//
+//	val, err := web.Get(ctx, "user:123").Result()
 func Get(ctx context.Context, key string) *redis.StringCmd {
 	return Client.Get(ctx, key)
 }
@@ -59,7 +61,8 @@ func Get(ctx context.Context, key string) *redis.StringCmd {
 // Set 设置缓存
 //
 // 使用方式：
-//   err := web.Set(ctx, "user:123", "data", 10*time.Minute).Err()
+//
+//	err := web.Set(ctx, "user:123", "data", 10*time.Minute).Err()
 func Set(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd {
 	return Client.Set(ctx, key, value, expiration)
 }
@@ -67,7 +70,8 @@ func Set(ctx context.Context, key string, value any, expiration time.Duration) *
 // Del 删除缓存
 //
 // 使用方式：
-//   err := web.Del(ctx, "user:123").Err()
+//
+//	err := web.Del(ctx, "user:123").Err()
 func Del(ctx context.Context, key string) *redis.IntCmd {
 	return Client.Del(ctx, key)
 }
@@ -75,7 +79,8 @@ func Del(ctx context.Context, key string) *redis.IntCmd {
 // Close 关闭 Redis 连接
 //
 // 使用方式：
-//   defer cache.Close()
+//
+//	defer cache.Close()
 func Close() error {
 	if Client != nil {
 		return Client.Close()
