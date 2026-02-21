@@ -1,0 +1,7 @@
+# 应用名称
+appName = "MyApp"
+
+# Web 服务配置
+[web]
+port = 8080              # HTTP 监听端口
+logLevel = "info"        # 日志级别: debug, info, warn, error

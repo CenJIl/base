@@ -13,14 +13,6 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-// UploadConfig 上传配置
-type UploadConfig struct {
-	MaxFileSize int64    `toml:"maxFileSize"` // 单文件最大大小（字节）
-	AllowedExts []string `toml:"allowedExts"` // 允许的扩展名（如 [".jpg", ".png"]）
-	UploadPath  string   `toml:"uploadPath"`  // 上传保存路径
-	URLPrefix   string   `toml:"urlPrefix"`   // 访问 URL 前缀
-}
-
 // UploadMiddleware 上传中间件（验证 + 限制）
 //
 // 检查 Content-Type 并将配置保存到上下文，供 handler 使用

@@ -15,23 +15,26 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/utils"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	corsMiddleware "github.com/hertz-contrib/cors"
-	"github.com/hertz-contrib/i18n"
-	jwtMiddleware "github.com/hertz-contrib/jwt"
-	swaggerMiddleware "github.com/hertz-contrib/swagger"
+	hertzI18n "github.com/hertz-contrib/i18n"
+	_ "github.com/hertz-contrib/jwt"
+	_ "github.com/hertz-contrib/swagger"
 )
 
 // NewServer 创建 Hertz 服务器
 //
-// 配置完全由用户通过 config.toml 控制，此函数只负责：
-// 1. 读取用户配置
+// 配置完全由用户通过配置文件控制，此函数负责：
+// 1. 读取用户配置（从 app.toml 或指定路径）
 // 2. 初始化已启用的子模块（DB/Redis/i18n）
 // 3. 集成官方中间件（CORS/JWT/Swagger/i18n）
 // 4. 返回可用的服务器实例
 //
 // # Generic parameter T 是用户的配置结构体类型，必须内嵌 web.Config
 //
+// # Parameters
+//
+//	configPath - 配置文件路径，可选。默认为 "app.toml"
+//
 // 注意：
-//   - 必须先调用 cfg.LoadConfig[AppConfig]() 或 cfg.InitConfig[AppConfig](defaultConfig)
 //   - 配置文件中为零值的字段会被跳过（如 Port = 0 会导致 panic）
 //
 // Example:
@@ -41,13 +44,27 @@ import (
 //	    web.Config  // 必须内嵌
 //	}
 //
-//	cfg.LoadConfigFromDefaultPath[AppConfig]()
+//	// 无参数 - 默认读取 ./app.toml
 //	h := web.NewServer[AppConfig]()
-func NewServer[T any]() *server.Hertz {
+//
+//	// 有参数 - 读取自定义路径
+//	h := web.NewServer[AppConfig]("config/app.toml")
+func NewServer[T any](configPath ...string) *server.Hertz {
+	// 确定配置文件路径
+	configFile := "app.toml"
+	if len(configPath) > 0 && configPath[0] != "" {
+		configFile = configPath[0]
+	}
+
+	// 加载配置
+	if err := cfg.LoadConfig[T](configFile); err != nil {
+		panic(fmt.Errorf("配置加载失败: %w", err))
+	}
+
 	// Load config from cfg package
 	userCfg := cfg.GetCfg[T]()
 	if userCfg == nil {
-		panic("配置未初始化，请先调用 cfg.LoadConfig[AppConfig]() 或 cfg.InitConfig[AppConfig](defaultConfig)")
+		panic("配置未初始化，请先调用 cfg.LoadConfig 或使用 NewServer 的自动加载功能")
 	}
 
 	// Extract web config from embedded Config field
@@ -61,15 +78,6 @@ func NewServer[T any]() *server.Hertz {
 	// Apply log level
 	if webCfg.LogLevel != "" {
 		logger.UpdateLogLevel(webCfg.LogLevel)
-	}
-
-	// Initialize i18n (使用官方 hertz-contrib/i18n)
-	if webCfg.LocalePath != "" {
-		if err := i18n.LoadI18n(webCfg.LocalePath, webCfg.DefaultLang); err != nil {
-			logger.Warnf("[I18n] 加载失败: %v", err)
-		} else {
-			logger.Infof("[I18n] 已加载: %s (默认: %s)", webCfg.LocalePath, webCfg.DefaultLang)
-		}
 	}
 
 	// Initialize database (如果配置了 driver)
@@ -115,17 +123,16 @@ func NewServer[T any]() *server.Hertz {
 
 	// 4. 官方 i18n 中间件
 	if webCfg.LocalePath != "" {
-		h.Use(i18n.Locale())
+		h.Use(hertzI18n.Localize())
 	}
 
 	// 5. 官方 CORS 中间件
-	h.Use(corsMiddleware.CORS(
-		// 允许所有源（生产环境应该限制）
-		corsMiddleware.WithAllowOrigins([]string{"*"}),
-		corsMiddleware.WithAllowMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
-		corsMiddleware.WithAllowHeaders([]string{"Content-Type", "Authorization"}),
-		corsMiddleware.WithCredentials(true), // 允许携带 Cookie
-	))
+	h.Use(corsMiddleware.New(corsMiddleware.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 
 	// 6. 官方 JWT 中间件（后续需要配置 skipPaths）
 	// h.Use(jwtMiddleware.HertzJWTMiddleware(...))
@@ -162,7 +169,7 @@ func NewServer[T any]() *server.Hertz {
 func MustRun[T any](h *server.Hertz) {
 	userCfg := cfg.GetCfg[T]()
 	if userCfg == nil {
-		panic("配置未初始化，请先调用 cfg.LoadConfig[AppConfig]() 或 cfg.InitConfig[AppConfig](defaultConfig)")
+		panic("配置未初始化，请先调用 web.NewServer[AppConfig]()")
 	}
 
 	webCfg := extractWebConfig(*userCfg)
@@ -189,18 +196,4 @@ func GetPort[T any]() int {
 	}
 	webCfg := extractWebConfig(*userCfg)
 	return webCfg.Port
-}
-
-// extractWebConfig 从用户配置中提取内嵌的 web.Config
-func extractWebConfig(userCfg any) web.Config {
-	type WebConfigEmbedder interface {
-		GetWebConfig() web.Config
-	}
-
-	if embedder, ok := userCfg.(WebConfigEmbedder); ok {
-		return embedder.GetWebConfig()
-	}
-
-	// 如果没有实现接口，返回零值
-	return web.Config{}
 }

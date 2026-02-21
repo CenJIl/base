@@ -1,0 +1,23 @@
+version: '3'
+
+tasks:
+  swag:
+    desc: Generate Swagger documentation
+    cmds:
+      - swag init -g main.go -o docs --parseDependency --parseInternal
+
+  dev:
+    desc: Run dev server with auto swagger generation
+    cmds:
+      - task: swag
+      - go run main.go
+
+  build:
+    desc: Build the application
+    cmds:
+      - go build -o bin/{{.PROJECT_NAME}} main.go
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf bin/ docs/
