@@ -1,24 +1,25 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"time"
-
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	"time"
 )
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Driver   string `toml:"driver"`   // 数据库驱动：mysql, postgres
-	Host     string `toml:"host"`     // 数据库主机
-	Port     int    `toml:"port"`     // 数据库端口
-	User     string `toml:"user"`     // 数据库用户
-	Password string `toml:"password"` // 数据库密码
-	DBName   string `toml:"dbname"`   // 数据库名称
-	MaxOpen  int    `toml:"maxOpen"`  // 最大连接数
-	MaxIdle  int    `toml:"maxIdle"`  // 最大空闲连接
+	Driver   string `toml:"driver"`
+	Host     string `toml:"host"`
+	Port     int    `toml:"port"`
+	User     string `toml:"user"`
+	Password string `toml:"password"`
+	DBName   string `toml:"dbname"`
+	MaxOpen  int    `toml:"maxOpen"`
+	MaxIdle  int    `toml:"maxIdle"`
+	SSLMode  string `toml:"sslMode"`
 }
 
 // DB 数据库连接池（供 sqlc 生成的代码使用）
@@ -54,7 +55,10 @@ func InitDB(cfg DatabaseConfig) error {
 	db.SetConnMaxLifetime(time.Hour) // 连接最大生存时间1小时
 
 	// 测试连接
-	if err := db.Ping(); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
@@ -66,23 +70,13 @@ func InitDB(cfg DatabaseConfig) error {
 func buildDSN(cfg DatabaseConfig) string {
 	switch cfg.Driver {
 	case DriverMySQL:
-		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local",
-			cfg.User,
-			cfg.Password,
-			cfg.Host,
-			cfg.Port,
-			cfg.DBName,
-		)
-
+		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName)
 	case DriverPostgreSQL:
-		return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable timezone=UTC",
-			cfg.Host,
-			cfg.Port,
-			cfg.User,
-			cfg.Password,
-			cfg.DBName,
-		)
-
+		sslMode := cfg.SSLMode
+		if sslMode == "" {
+			sslMode = "require"
+		}
+		return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s timezone=UTC", cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, sslMode)
 	default:
 		return ""
 	}
@@ -94,8 +88,10 @@ func buildDSN(cfg DatabaseConfig) string {
 //
 //	defer database.Close()
 func Close() error {
-	if DB != nil {
-		return DB.Close()
+	if DB == nil {
+		return nil
 	}
-	return nil
+	db := DB
+	DB = nil
+	return db.Close()
 }

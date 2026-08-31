@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"sync"
 	"time"
 
 	"github.com/CenJIl/base/logger"
@@ -9,10 +10,14 @@ import (
 
 // Connection WebSocket 连接封装
 type Connection struct {
-	hub  *Hub            // 连接池
-	ws   *websocket.Conn // WebSocket 连接
-	send chan []byte     // 发送队列
-	id   string          // 连接 ID
+	hub            *Hub
+	ws             *websocket.Conn
+	send           chan []byte
+	id             string
+	maxMessageSize int64
+	pongWait       time.Duration
+	pingPeriod     time.Duration
+	closeOnce      sync.Once
 }
 
 // NewConnection 创建新连接
@@ -21,11 +26,15 @@ type Connection struct {
 //
 //	conn := ws.NewConnection(wsConn, hub)
 func NewConnection(wsConn *websocket.Conn, hub *Hub) *Connection {
+	config := currentConnectionConfig()
 	return &Connection{
-		hub:  hub,
-		ws:   wsConn,
-		send: make(chan []byte, 256),
-		id:   generateConnID(),
+		hub:            hub,
+		ws:             wsConn,
+		send:           make(chan []byte, 256),
+		id:             generateConnID(),
+		maxMessageSize: config.MaxMessageSize,
+		pongWait:       time.Duration(config.PongTimeout) * time.Second,
+		pingPeriod:     time.Duration(config.PingInterval) * time.Second,
 	}
 }
 
@@ -38,12 +47,12 @@ func (c *Connection) ReadPump() {
 		c.ws.Close()
 	}()
 
-	c.ws.SetReadLimit(maxMessageSize)
-	c.ws.SetReadDeadline(time.Now().Add(pongWait))
+	c.ws.SetReadLimit(c.maxMessageSize)
+	c.ws.SetReadDeadline(time.Now().Add(c.pongWait))
 
 	// 配置 Pong 处理器
 	c.ws.SetPongHandler(func(string) error {
-		c.ws.SetReadDeadline(time.Now().Add(pongWait))
+		c.ws.SetReadDeadline(time.Now().Add(c.pongWait))
 		return nil
 	})
 
@@ -65,7 +74,7 @@ func (c *Connection) ReadPump() {
 //
 // 从 send 队列读取消息并写入 WebSocket
 func (c *Connection) WritePump() {
-	ticker := time.NewTicker(pingPeriod)
+	ticker := time.NewTicker(c.pingPeriod)
 	defer func() {
 		ticker.Stop()
 		c.ws.Close()
@@ -118,7 +127,7 @@ func (c *Connection) Send(message []byte) {
 //
 //	conn.Close()
 func (c *Connection) Close() {
-	close(c.send)
+	c.closeOnce.Do(func() { close(c.send) })
 }
 
 // ID 获取连接 ID
@@ -130,20 +139,7 @@ func (c *Connection) ID() string {
 	return c.id
 }
 
-// WebSocket 连接参数
-const (
-	// 允许等待写入的时间
-	writeWait = 10 * time.Second
-
-	// 允许读取下一个 Pong 的时间
-	pongWait = 60 * time.Second
-
-	// Ping 间隔（必须小于 pongWait）
-	pingPeriod = 30 * time.Second
-
-	// 最大消息大小
-	maxMessageSize = 512 * 1024 // 512KB
-)
+const writeWait = 10 * time.Second
 
 // generateConnID 生成连接 ID
 func generateConnID() string {

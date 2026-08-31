@@ -27,6 +27,18 @@ func RecoveryMiddleware() app.HandlerFunc {
 	}
 }
 
+// BodyLimitMiddleware rejects requests whose declared or parsed body exceeds maxBytes.
+func BodyLimitMiddleware(maxBytes int64) app.HandlerFunc {
+	return func(ctx context.Context, c *app.RequestContext) {
+		if maxBytes > 0 && (int64(c.Request.Header.ContentLength()) > maxBytes || int64(len(c.Request.Body())) > maxBytes) {
+			c.JSON(413, Fail(413, "request body too large"))
+			c.Abort()
+			return
+		}
+		c.Next(ctx)
+	}
+}
+
 // LoggerMiddleware 日志中间件
 //
 // 记录每个请求的详细信息

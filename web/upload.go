@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -43,29 +44,35 @@ func UploadMiddleware(config UploadConfig) app.HandlerFunc {
 //	file, _ := c.FormFile("file")
 //	err := web.SaveUploadedFile(file, "/path/to/save/filename.ext")
 func SaveUploadedFile(file *multipart.FileHeader, dst string) error {
+	if file == nil {
+		return errors.New("上传文件不能为空")
+	}
+	base := filepath.Base(filepath.Clean(dst))
+	if base == "." || base == ".." || base == "" {
+		return errors.New("目标文件名无效")
+	}
+	return saveUploadedFile(file, dst)
+}
+
+func saveUploadedFile(file *multipart.FileHeader, dst string) error {
 	src, err := file.Open()
 	if err != nil {
 		return fmt.Errorf("打开上传文件失败: %w", err)
 	}
 	defer src.Close()
-
-	// 确保目录存在
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		return fmt.Errorf("创建目录失败: %w", err)
 	}
-
-	dstFile, err := os.Create(dst)
+	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return fmt.Errorf("创建目标文件失败: %w", err)
 	}
-	defer dstFile.Close()
-
-	_, err = io.Copy(dstFile, src)
-	if err != nil {
+	if _, err = io.Copy(dstFile, src); err != nil {
+		dstFile.Close()
+		_ = os.Remove(dst)
 		return fmt.Errorf("写入文件失败: %w", err)
 	}
-
-	return nil
+	return dstFile.Close()
 }
 
 // IsAllowedExt 检查文件扩展名是否允许
@@ -99,20 +106,17 @@ func IsAllowedExt(filename string, allowedExts []string) bool {
 //	    panic(web.BadRequestHTTP(err.Error()))
 //	}
 func ValidateFile(file *multipart.FileHeader, config UploadConfig) error {
-	// 检查大小
-	if file.Size > config.MaxFileSize {
+	if file == nil {
+		return errors.New("上传文件不能为空")
+	}
+	if config.MaxFileSize > 0 && file.Size > config.MaxFileSize {
 		return fmt.Errorf("文件大小超限：%.2f MB / %.2f MB",
 			float64(file.Size)/1024/1024,
 			float64(config.MaxFileSize)/1024/1024)
 	}
-
-	// 检查扩展名
 	if len(config.AllowedExts) > 0 && !IsAllowedExt(file.Filename, config.AllowedExts) {
-		return fmt.Errorf("不支持的文件类型：%s（允许：%s）",
-			filepath.Ext(file.Filename),
-			strings.Join(config.AllowedExts, ", "))
+		return fmt.Errorf("不支持的文件类型：%s（允许：%s）", filepath.Ext(file.Filename), strings.Join(config.AllowedExts, ", "))
 	}
-
 	return nil
 }
 

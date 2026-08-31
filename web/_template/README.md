@@ -1,6 +1,6 @@
-# Web 项目模板
+# Hertz Web 项目模板
 
-此目录包含 web 模块的项目模板，用于快速创建新项目。
+此目录提供可复制的 basic 和 full 模板。模板统一使用 `app.toml`，消费者可按需删除数据库、Redis、JWT、上传等配置与代码。
 
 ## 目录结构
 
@@ -21,51 +21,28 @@ _template/
 - 基本路由
 - 无数据库依赖
 
-### full - 完整模板
+### full - 完整示例
 
-适合：生产环境项目
+适合：需要认证、数据库和缓存示例的项目。
+包含统一响应、异常处理、JWT、数据库/Redis 配置示例和用户 CRUD demo。
 
-包含：
-- 完整配置
-- MySQL/PostgreSQL 数据库（配置已就绪）
-- Redis 缓存（配置已就绪）
-- i18n 多语言支持（配置已就绪）
-- JWT 认证（已配置）
-- 统一错误处理
-- CRUD 示例接口（用户管理）
-- Swagger API 文档支持
+注意：这是演示模板，不是开箱即用的生产认证方案；必须替换 JWT Secret、账号校验和数据库凭据。
 
 ## 快速开始
 
-### 安装工具
-
 ```bash
-# 安装 go-task (跨平台构建工具)
-go install github.com/go-task/task/v3/cmd/task@latest
-
-# 安装 swag (Swagger 文档生成工具)
-go install github.com/swaggo/swag/cmd/swag@latest
-```
-
-### 启动项目
-
-```bash
-# 1. 复制模板到你的项目目录
-cp -r web/_template/full /path/to/your-project
-
-# 2. 进入项目目录
+# 复制模板（Windows PowerShell 可使用 Copy-Item -Recurse）
+cp -r web/_template/basic /path/to/your-project
 cd /path/to/your-project
-
-# 3. 复制配置文件
-cp app.toml config.toml
-
-# 4. 初始化 Go 模块
 go mod init your-project-name
+go mod edit -replace github.com/CenJIl/base=/path/to/base
 go mod tidy
-
-# 5. 运行开发服务器（自动生成 Swagger 文档）
-task dev
+go run main.go
 ```
+
+启动前编辑 `app.toml`。`web.NewServer` 默认读取当前目录的 `app.toml`；数据库、Redis、i18n 和上传配置均为可选。
+
+full 模板的 Swagger/Taskfile 仅作为可选开发示例，不代表核心库会自动启用 Swagger。
 
 ## 使用 task 管理项目
 

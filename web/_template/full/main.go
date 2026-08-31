@@ -13,6 +13,7 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/CenJIl/base/cfg"
 	"github.com/CenJIl/base/web"
 	"github.com/CenJIl/base/web/jwt"
 	"github.com/cloudwego/hertz/pkg/app"
@@ -37,8 +38,13 @@ var users = map[int]User{
 }
 
 func main() {
+	h := web.NewServer[AppConfig]()
+	appCfg := cfg.GetCfg[AppConfig]()
+	if appCfg == nil || appCfg.JWTSecret == "" || appCfg.JWTSecret == "change-this-secret-in-production" {
+		panic("jwtSecret must be configured with a non-default value")
+	}
 	if err := jwt.Init(jwt.Config{
-		Secret:      "your-secret-key-change-in-production",
+		Secret:      appCfg.JWTSecret,
 		Realm:       "jwt",
 		Timeout:     3600,
 		MaxRefresh:  7200,
@@ -47,10 +53,9 @@ func main() {
 	}); err != nil {
 		panic(err)
 	}
-
-	h := web.NewServer[AppConfig]()
-
 	h.Use(jwt.Middleware())
+
+	// Protected routes follow the JWT middleware.
 
 	h.GET("/health", func(ctx context.Context, c *app.RequestContext) {
 		c.JSON(consts.StatusOK, web.Success(map[string]string{

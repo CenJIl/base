@@ -24,16 +24,18 @@ func Init(config Config) error {
 
 	var err error
 	authMiddleware, err = jwtMiddleware.New(&jwtMiddleware.HertzJWTMiddleware{
-		Realm:         config.Realm,
-		Key:           []byte(config.Secret),
-		Timeout:       timeout,
-		MaxRefresh:    maxRefresh,
-		IdentityKey:   config.IdentityKey,
-		TokenLookup:   config.TokenLookup,
-		TokenHeadName: "Bearer",
-		SendCookie:    true,
-		CookieName:    "token",
-		CookieMaxAge:  timeout,
+		Realm:          config.Realm,
+		Key:            []byte(config.Secret),
+		Timeout:        timeout,
+		MaxRefresh:     maxRefresh,
+		IdentityKey:    config.IdentityKey,
+		TokenLookup:    config.TokenLookup,
+		TokenHeadName:  "Bearer",
+		SendCookie:     true,
+		CookieName:     "token",
+		CookieMaxAge:   timeout,
+		CookieHTTPOnly: true,
+		SecureCookie:   true,
 	})
 
 	if err != nil {
@@ -47,11 +49,17 @@ func Init(config Config) error {
 
 func Middleware() app.HandlerFunc {
 	if !initialized {
-		return func(ctx context.Context, c *app.RequestContext) {
-			c.Next(ctx)
-		}
+		return func(ctx context.Context, c *app.RequestContext) { c.Next(ctx) }
 	}
-	return authMiddleware.MiddlewareFunc()
+	return func(ctx context.Context, c *app.RequestContext) {
+		for _, path := range cfg.SkipPaths {
+			if string(c.Path()) == path {
+				c.Next(ctx)
+				return
+			}
+		}
+		authMiddleware.MiddlewareFunc()(ctx, c)
+	}
 }
 
 func LoginHandler() app.HandlerFunc {

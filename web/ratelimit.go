@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -24,17 +23,22 @@ type IPRateLimiter struct {
 	limiters map[string]*rate.Limiter
 	mu       sync.RWMutex
 	config   *RateLimiterConfig
+	stop     chan struct{}
+	stopOnce sync.Once
 }
 
 // NewIPRateLimiter creates a new IP-based rate limiter
 func NewIPRateLimiter(rps float64, burst int) *IPRateLimiter {
+	if rps <= 0 {
+		rps = 1
+	}
+	if burst <= 0 {
+		burst = 1
+	}
 	return &IPRateLimiter{
 		limiters: make(map[string]*rate.Limiter),
-		config: &RateLimiterConfig{
-			RequestsPerSecond: rps,
-			BurstSize:         burst,
-			CleanupInterval:   5 * time.Minute,
-		},
+		config:   &RateLimiterConfig{RequestsPerSecond: rps, BurstSize: burst, CleanupInterval: 5 * time.Minute},
+		stop:     make(chan struct{}),
 	}
 }
 
@@ -52,17 +56,29 @@ func (rl *IPRateLimiter) Allow(ip string) bool {
 	return limiter.Allow()
 }
 
-// Cleanup removes stale limiters
+// Cleanup starts stale limiter cleanup and returns immediately.
 func (rl *IPRateLimiter) Cleanup() {
 	ticker := time.NewTicker(rl.config.CleanupInterval)
 	go func() {
-		for range ticker.C {
-			rl.mu.Lock()
-			rl.limiters = make(map[string]*rate.Limiter)
-			rl.mu.Unlock()
-			logger.Debugf("Rate limiter cleanup completed")
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				rl.mu.Lock()
+				rl.limiters = make(map[string]*rate.Limiter)
+				rl.mu.Unlock()
+			case <-rl.stop:
+				return
+			}
 		}
 	}()
+}
+
+// Close stops cleanup and releases limiter state.
+func (rl *IPRateLimiter) Close() {
+	if rl != nil {
+		rl.stopOnce.Do(func() { close(rl.stop) })
+	}
 }
 
 var (
@@ -70,13 +86,23 @@ var (
 )
 
 // InitRateLimiter initializes global rate limiter
+// InitRateLimiter initializes the global rate limiter.
 func InitRateLimiter(rps float64, burst int) {
+	if globalIPRateLimiter != nil {
+		globalIPRateLimiter.Close()
+	}
 	globalIPRateLimiter = NewIPRateLimiter(rps, burst)
 	globalIPRateLimiter.Cleanup()
 	logger.Infof("Rate limiter initialized: %v req/s, burst %d", rps, burst)
 }
 
-// RateLimitMiddleware creates rate limiting middleware
+// CloseRateLimiter stops the global rate limiter cleanup loop.
+func CloseRateLimiter() {
+	if globalIPRateLimiter != nil {
+		globalIPRateLimiter.Close()
+		globalIPRateLimiter = nil
+	}
+}
 func RateLimitMiddleware() app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		if globalIPRateLimiter == nil {
@@ -87,17 +113,11 @@ func RateLimitMiddleware() app.HandlerFunc {
 		clientIP := c.ClientIP()
 		if !globalIPRateLimiter.Allow(clientIP) {
 			logger.Warnf("Rate limit exceeded for IP: %s", clientIP)
-			c.JSON(consts.StatusTooManyRequests, map[string]any{
-				"code":    429,
-				"message": "Rate limit exceeded",
-				"data": map[string]any{
-					"limit": fmt.Sprintf("%.0f req/s", globalIPRateLimiter.config.RequestsPerSecond),
-				},
-			})
+			c.Header("Retry-After", "1")
+			c.JSON(consts.StatusTooManyRequests, Fail(429, "rate limit exceeded"))
 			c.Abort()
 			return
 		}
-
 		c.Next(ctx)
 	}
 }

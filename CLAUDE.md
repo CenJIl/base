@@ -88,12 +88,7 @@ When adding features, document them directly in the code with clear comments, no
 
 ### Architecture Patterns
 
-**Configuration System**: Uses Go generics with `cfg.InitConfig[T](defaultConfig)` where T is your config struct. The system:
-- Looks for `config.toml` in the executable directory
-- Creates the file with defaults if missing
-- Watches for file changes and hot-reloads via fsnotify
-- Provides `cfg.GetCfg[T]()` to access current config
-- Supports change callbacks via `cfg.OnConfigChange[T](func(*T))`
+**Configuration System**: Uses Go generics. `cfg.InitConfig[T]` creates or watches `app.toml` beside the executable; `cfg.LoadConfig[T](path)` loads an existing application configuration. `cfg.GetCfg[T]` returns nil before initialization or for a type mismatch. Call `cfg.Close()` during shutdown when the application owns the watcher.
 
 **Logging System**: Zap-based structured logging with:
 - Console output (always enabled) with colored level tags
@@ -102,12 +97,7 @@ When adding features, document them directly in the code with clear comments, no
 - Automatic log rotation (20MB max, 10 backups, 30 days retention)
 - Platform-specific: `zap_windows.go` for Windows service detection, `zap_other.go` stub
 
-**Web Framework**: Gin wrapper with pre-configured middleware stack:
-- Recovery middleware for panic handling
-- i18n middleware with TOML locale files
-- Request/response logging middleware
-- Unified JSON response format with trace IDs
-- Must embed `web.WebBaseConfig` in your config struct
+**Web Framework**: Hertz wrapper with request IDs, security headers, configurable CORS, request body limits, optional TOML i18n, unified JSON responses, optional DB/Redis initialization, upload helpers, JWT helpers, and a Hertz-native WebSocket adapter. Embed `web.Config` in the application config.
 
 **Windows Service**: Full service lifecycle management:
 - Service name auto-extracted from handler function name
@@ -119,15 +109,13 @@ When adding features, document them directly in the code with clear comments, no
 ### Key Conventions
 
 **Initialization Order** (main.go pattern):
-1. Define config struct with embedded `web.WebBaseConfig`
-2. Call `cfg.InitConfig[YourConfig](defaultConfigTOML)`
-3. Get config via `cfg.GetCfg[YourConfig]()`
-4. Initialize web engine with `web.NewGin(config.Web)`
-5. Start server
+1. Define config struct with embedded `web.Config`.
+2. Call `web.NewServer[YourConfig]()`; it loads `app.toml` and configures the Hertz engine.
+3. Register routes and optional middleware such as JWT.
+4. Run with `web.Run[YourConfig](h)` to handle errors or `web.MustRun[YourConfig](h)` for panic-on-error behavior.
+5. Defer `web.Shutdown(ctx, h)` when the process owns DB, Redis, rate-limiter, and config resources.
 
-**Config File**: `config.toml` (gitignored) in executable directory
-- TOML format with struct tags: `` `toml:"fieldName"` ``
-- Example template should be provided as `config.example.toml`
+**Config File**: `app.toml` (gitignored) in the application working directory; use `config.example.toml` as the contract.
 
 **Platform-Specific Code**: Use build tags `//go:build windows` and `//go:build !windows`
 - Non-Windows platforms provide stub functions that panic with clear messages

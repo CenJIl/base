@@ -1,78 +1,105 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"reflect"
 
+	"github.com/CenJIl/base/cfg"
 	"github.com/CenJIl/base/web/cache"
 	"github.com/CenJIl/base/web/database"
 )
 
-// DatabaseConfig 数据库配置（类型别名）
 type DatabaseConfig = database.DatabaseConfig
-
-// RedisConfig Redis 配置（类型别名）
 type RedisConfig = cache.RedisConfig
 
-// Config Web 基础配置
-//
-// 使用者必须在配置结构体中内嵌此配置
-//
-// Example:
-//
-//	type AppConfig struct {
-//	    AppName string `toml:"appName"`
-//	    Port    int    `toml:"port"`
-//	    web.Config  // 必须内嵌
-//	}
+// Config contains the optional modules and defaults used by NewServer.
 type Config struct {
-	LocalePath  string         `toml:"localePath"`  // 本地化文件路径
-	DefaultLang string         `toml:"defaultLang"` // 默认语言
-	LogLevel    string         `toml:"logLevel"`    // 日志级别
-	Port        int            `toml:"port"`        // HTTP 监听端口
-	Upload      UploadConfig   `toml:"upload"`      // 文件上传配置
-	Database    DatabaseConfig `toml:"database"`    // 数据库配置（可选）
-	Redis       RedisConfig    `toml:"redis"`       // Redis 配置（可选）
+	LocalePath  string         `toml:"localePath"`
+	DefaultLang string         `toml:"defaultLang"`
+	LogLevel    string         `toml:"logLevel"`
+	Port        int            `toml:"port"`
+	Upload      UploadConfig   `toml:"upload"`
+	Database    DatabaseConfig `toml:"database"`
+	Redis       RedisConfig    `toml:"redis"`
+	CORS        CORSConfig     `toml:"cors"`
+	Security    SecurityConfig `toml:"security"`
 }
 
-// UploadConfig 上传配置
+type CORSConfig struct {
+	AllowOrigins     []string `toml:"allowOrigins"`
+	AllowMethods     []string `toml:"allowMethods"`
+	AllowHeaders     []string `toml:"allowHeaders"`
+	AllowCredentials bool     `toml:"allowCredentials"`
+}
+
+type SecurityConfig struct {
+	AllowedOrigins []string `toml:"allowedOrigins"`
+	MaxBodySize    int64    `toml:"maxBodySize"`
+}
+
 type UploadConfig struct {
-	MaxFileSize int64    `toml:"maxFileSize"` // 单文件最大大小（字节）
-	AllowedExts []string `toml:"allowedExts"` // 允许的扩展名
-	UploadPath  string   `toml:"uploadPath"`  // 上传保存路径
-	URLPrefix   string   `toml:"urlPrefix"`   // 访问 URL 前缀
+	MaxFileSize int64    `toml:"maxFileSize"`
+	AllowedExts []string `toml:"allowedExts"`
+	UploadPath  string   `toml:"uploadPath"`
+	URLPrefix   string   `toml:"urlPrefix"`
 }
 
-// extractWebConfig 从用户配置中提取内嵌的 web.Config
-//
-// 使用反射提取内嵌字段
-//
-// 如果用户配置中未内嵌 Config，返回零值
-func extractWebConfig(userCfg any) Config {
-	// 获取值的反射
-	val := reflect.ValueOf(userCfg)
+func (c Config) DefaultCORS() CORSConfig {
+	if len(c.CORS.AllowOrigins) == 0 {
+		c.CORS.AllowOrigins = []string{"http://localhost:3000"}
+	}
+	if c.CORS.AllowCredentials {
+		for _, origin := range c.CORS.AllowOrigins {
+			if origin == "*" {
+				c.CORS.AllowCredentials = false
+				break
+			}
+		}
+	}
+	if len(c.CORS.AllowMethods) == 0 {
+		c.CORS.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+	}
+	if len(c.CORS.AllowHeaders) == 0 {
+		c.CORS.AllowHeaders = []string{"Content-Type", "Authorization", "X-Request-ID"}
+	}
+	return c.CORS
+}
+func (c Config) DefaultSecurity() SecurityConfig {
+	if c.Security.MaxBodySize <= 0 {
+		c.Security.MaxBodySize = 10 << 20
+	}
+	return c.Security
+}
 
-	// 如果是指针，解引用
+func extractWebConfig(userCfg any) Config {
+	val := reflect.ValueOf(userCfg)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
-
-	// 遍历所有字段，查找内嵌的 Config
+	if !val.IsValid() || val.Kind() != reflect.Struct {
+		return Config{}
+	}
 	typ := val.Type()
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)
-		fieldValue := val.Field(i)
-
-		// 查找匿名（内嵌）字段且类型为 Config
 		if field.Anonymous && field.Type == reflect.TypeOf(Config{}) {
-			// 找到内嵌的 Config，直接返回
-			if fieldValue.CanInterface() {
-				if cfg, ok := fieldValue.Interface().(Config); ok {
+			if value := val.Field(i); value.CanInterface() {
+				if cfg, ok := value.Interface().(Config); ok {
 					return cfg
 				}
 			}
 		}
 	}
-
-	// 没找到内嵌 Config，返回零值
 	return Config{}
+}
+
+// Shutdown closes the Hertz server and every process-wide optional resource.
+func Shutdown(ctx context.Context, h interface{ Shutdown(context.Context) error }) error {
+	var serverErr error
+	if h != nil {
+		serverErr = h.Shutdown(ctx)
+	}
+	CloseRateLimiter()
+	return errors.Join(serverErr, database.Close(), cache.Close(), cfg.Close())
 }

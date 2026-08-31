@@ -82,8 +82,10 @@ func Del(ctx context.Context, key string) *redis.IntCmd {
 //
 //	defer cache.Close()
 func Close() error {
-	if Client != nil {
-		return Client.Close()
+	if Client == nil {
+		return nil
 	}
-	return nil
+	client := Client
+	Client = nil
+	return client.Close()
 }
