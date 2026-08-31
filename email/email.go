@@ -3,6 +3,7 @@ package email
 import (
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"net/smtp"
@@ -92,6 +93,9 @@ func NewQQMail(from, password string) *QQMail {
 //	    log.Fatalf("邮件发送失败: %v", err)
 //	}
 func (m *QQMail) Send(to []string, subject, body string) error {
+	if len(to) == 0 {
+		return errors.New("收件人列表不能为空")
+	}
 	smtpHost := "smtp.qq.com"
 	smtpPort := "465"
 
